@@ -1,16 +1,13 @@
 /// <reference types="cypress" />
-
-import { existUser } from '../e2e/constants/index';
-import AuthView from '../e2e/pages/AuthView';
-
-Cypress.Commands.add('auth', () => {
-  const { login } = existUser;
-  const { password } = existUser;
-
-  AuthView.enterLogin(login);
-  AuthView.enterPassword(password);
-
-  AuthView.tapLogIn();
-});
+/// <reference types="cypress-mailslurp" />
 
 Cypress.Commands.add('getByData', (selector) => cy.get(`[data-cy=${selector}]`));
+
+const apiKey = Cypress.env('MAILSLURP_API_KEY');
+if (!apiKey) {
+  throw new Error(
+    'Error no MailSlurp API Key. Please set the `MAILSLURP_API_KEY` '
+        + 'environment variable to the value of your MailSlurp API Key to use the MailSlurp Cypress plugin. '
+        + 'Create a free account at https://app.mailslurp.com/sign-up/. See https://docs.cypress.io/guides/guides/environment-variables#Option-3-CYPRESS_ for more information.',
+  );
+}
