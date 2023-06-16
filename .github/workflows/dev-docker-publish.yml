@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - develop
+      - master
+      - ci/#863gxmf5j-prepare-to-prod
 
 env:
   GITHUB_REGISTRY: ghcr.io
@@ -21,11 +23,14 @@ jobs:
           docker build -t $GITHUB_REGISTRY/tourmalinecore/inner-circle/account-management-ui:latest -t $GITHUB_REGISTRY/tourmalinecore/inner-circle/account-management-ui:${{ github.sha }} .
           docker push $GITHUB_REGISTRY/tourmalinecore/inner-circle/account-management-ui:latest
           docker push $GITHUB_REGISTRY/tourmalinecore/inner-circle/account-management-ui:${{ github.sha }}
+
   deploy-to-dev-k8s:
     needs: build-image
     name: Deploy service to k8s for development environment  
-    if: github.event_name == 'push'
+    if: github.ref_name == 'develop'
     runs-on: ubuntu-22.04
+    environment: dev
+
     steps:
       - name: checkout
         uses: actions/checkout@v1
@@ -38,13 +43,45 @@ jobs:
             helm upgrade --install --namespace dev-inner-circle --create-namespace --values ./ci/values-custom.yaml \
             --set "image.tag=${{ github.sha }}" \
             --set "ingress.enabled=true" \
-            --set "ingress.hostname=${{ secrets.DEV_HOST }}" \
-            --set "extraConfigMapEnvVars.API_ROOT=${{ secrets.DEV_API_ROOT }}" \
-            --set "extraConfigMapEnvVars.API_ROOT_AUTH=${{ secrets.DEV_API_ROOT_AUTH }}" \
-            --set "extraConfigMapEnvVars.ENV_KEY=${{ secrets.DEV_ENV_KEY }}" \
-            --set "extraConfigMapEnvVars.LINK_TO_ACCOUNT_SERVICE=${{ secrets.DEV_LINK_TO_ACCOUNT_SERVICE }}" \
-            --set "extraConfigMapEnvVars.LINK_TO_DASHBOARD=${{ secrets.DEV_LINK_TO_DASHBOARD }}" \
-            --set "extraConfigMapEnvVars.LINK_TO_SALARY_SERVICE=${{ secrets.DEV_LINK_TO_SALARY_SERVICE }}" \
+            --set "ingress.hostname=${{ vars.HOST }}" \
+            --set "extraConfigMapEnvVars.API_ROOT=${{ vars.API_ROOT }}" \
+            --set "extraConfigMapEnvVars.API_ROOT_AUTH=${{ vars.API_ROOT_AUTH }}" \
+            --set "extraConfigMapEnvVars.ENV_KEY=${{ vars.ENV_KEY }}" \
+            --set "extraConfigMapEnvVars.LINK_TO_ACCOUNT_SERVICE=${{ vars.LINK_TO_ACCOUNT_SERVICE }}" \
+            --set "extraConfigMapEnvVars.LINK_TO_DASHBOARD=${{ vars.LINK_TO_DASHBOARD }}" \
+            --set "extraConfigMapEnvVars.LINK_TO_SALARY_SERVICE=${{ vars.LINK_TO_SALARY_SERVICE }}" \
+
             "${RELEASE_NAME}" \
             bitnami/nginx
-          kubeconfig: "${{ secrets.DEV_KUBECONFIG }}"
+          kubeconfig: "${{ secrets.KUBECONFIG }}"
+
+  deploy-to-prod-k8s:
+    needs: build-image
+    name: Deploy service to k8s for production environment  
+    if: github.ref_name == 'ci/#863gxmf5j-prepare-to-prod'
+    runs-on: ubuntu-22.04
+    environment: prod
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v1
+      - name: Deploy
+        uses: WyriHaximus/github-action-helm3@v3
+        with:
+          exec: |
+            RELEASE_NAME=account-management-ui
+            helm repo add bitnami https://charts.bitnami.com/bitnami
+            helm upgrade --install --namespace prod-inner-circle --create-namespace --values ./ci/values-custom.yaml \
+            --set "image.tag=${{ github.sha }}" \
+            --set "ingress.enabled=true" \
+            --set "ingress.hostname=${{ vars.HOST }}" \
+            --set "extraConfigMapEnvVars.API_ROOT=${{ vars.API_ROOT }}" \
+            --set "extraConfigMapEnvVars.API_ROOT_AUTH=${{ vars.API_ROOT_AUTH }}" \
+            --set "extraConfigMapEnvVars.ENV_KEY=${{ vars.ENV_KEY }}" \
+            --set "extraConfigMapEnvVars.LINK_TO_ACCOUNT_SERVICE=${{ vars.LINK_TO_ACCOUNT_SERVICE }}" \
+            --set "extraConfigMapEnvVars.LINK_TO_DASHBOARD=${{ vars.LINK_TO_DASHBOARD }}" \
+            --set "extraConfigMapEnvVars.LINK_TO_SALARY_SERVICE=${{ vars.LINK_TO_SALARY_SERVICE }}" \
+            
+            "${RELEASE_NAME}" \
+            bitnami/nginx
+          kubeconfig: "${{ secrets.KUBECONFIG }}"
