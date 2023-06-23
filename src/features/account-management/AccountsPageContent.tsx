@@ -39,6 +39,7 @@ function AccountsPageContent() {
     {
       Header: 'Name',
       accessor: 'lastName',
+      minWidth: 300,
       Cell: ({ row }: Table<Accounts>) => {
         const {
           firstName, lastName, middleName, isBlocked,
